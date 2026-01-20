@@ -1,0 +1,22 @@
+# ========================================
+# Example Terraform Variables File
+# ========================================
+# Copy this file to terraform.tfvars and customize as needed
+# terraform.tfvars is gitignored for security
+
+aws_region        = "us-east-1"
+project_name      = "nginx-deployment"
+environment       = "dev"
+instance_type     = "t2.micro"
+key_name          = "terraform-ansible-key"
+
+# Security: Restrict these CIDR blocks in production!
+ssh_allowed_cidr  = ["0.0.0.0/0"]
+http_allowed_cidr = ["0.0.0.0/0"]
+
+common_tags = {
+  ManagedBy   = "Terraform"
+  Project     = "Nginx-Ansible-Deployment"
+  Environment = "dev"
+  Owner       = "DevOps Team"
+}

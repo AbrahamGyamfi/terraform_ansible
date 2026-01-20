@@ -1,0 +1,255 @@
+---
+# ========================================
+# Main Ansible Playbook
+# ========================================
+# This playbook deploys a Node.js/React DevOps Dashboard application
+
+- name: Deploy DevOps Dashboard Application
+  hosts: webservers
+  become: yes
+  gather_facts: yes
+
+  vars:
+    app_port: 5000
+    app_name: "DevOps Dashboard"
+    app_version: "1.0.0"
+    app_dir: /opt/devops-dashboard
+    deployment_date: "{{ ansible_date_time.iso8601 }}"
+    github_repo: "https://github.com/AbrahamGyamfi/DevOps_deploy.git"
+
+  tasks:
+    - name: Display target host information
+      debug:
+        msg: >
+          Configuring {{ inventory_hostname }} 
+          ({{ ansible_distribution }} {{ ansible_distribution_version }})
+
+    - name: Update system packages
+      yum:
+        name: '*'
+        state: latest
+        update_cache: yes
+      tags:
+        - system
+        - updates
+
+    - name: Install required packages
+      yum:
+        name:
+          - git
+          - gcc-c++
+          - make
+        state: present
+      tags:
+        - system
+
+    - name: Install Node.js 18 using dnf
+      shell: |
+        dnf install -y nodejs npm
+      args:
+        creates: /usr/bin/node
+      tags:
+        - nodejs
+
+    - name: Verify Node.js installation
+      command: node --version
+      register: node_version
+      changed_when: false
+      tags:
+        - nodejs
+
+    - name: Display Node.js version
+      debug:
+        msg: "Node.js version: {{ node_version.stdout }}"
+      tags:
+        - nodejs
+
+    - name: Create application directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: ec2-user
+        group: ec2-user
+        mode: '0755'
+      tags:
+        - webapp
+
+    - name: Clone application from GitHub
+      git:
+        repo: "{{ github_repo }}"
+        dest: "{{ app_dir }}"
+        version: main
+        force: yes
+      become_user: ec2-user
+      tags:
+        - webapp
+        - deploy
+
+    - name: Install all dependencies
+      shell: npm run install:all
+      args:
+        chdir: "{{ app_dir }}"
+      become_user: ec2-user
+      tags:
+        - webapp
+        - deploy
+
+    - name: Build production frontend
+      shell: VITE_API_URL=/api npm run build
+      args:
+        chdir: "{{ app_dir }}"
+      become_user: ec2-user
+      tags:
+        - webapp
+        - deploy
+
+    - name: Install PM2 globally
+      npm:
+        name: pm2
+        global: yes
+        state: present
+      tags:
+        - webapp
+
+    - name: Stop existing PM2 processes
+      shell: pm2 delete all || true
+      become_user: ec2-user
+      ignore_errors: yes
+      tags:
+        - webapp
+
+    - name: Start application with PM2
+      shell: pm2 start npm --name "devops-dashboard" -- start
+      args:
+        chdir: "{{ app_dir }}"
+      become_user: ec2-user
+      tags:
+        - webapp
+        - deploy
+
+    - name: Save PM2 configuration
+      shell: pm2 save
+      become_user: ec2-user
+      tags:
+        - webapp
+
+    - name: Setup PM2 to start on boot
+      shell: pm2 startup systemd -u ec2-user --hp /home/ec2-user
+      args:
+        creates: /etc/systemd/system/pm2-ec2-user.service
+      tags:
+        - webapp
+
+    - name: Enable nginx in amazon-linux-extras
+      shell: dnf install -y nginx
+      args:
+        creates: /usr/sbin/nginx
+      tags:
+        - nginx
+
+    - name: Install Nginx
+      yum:
+        name: nginx
+        state: present
+      tags:
+        - nginx
+
+    - name: Configure Nginx as reverse proxy
+      copy:
+        dest: /etc/nginx/conf.d/devops-dashboard.conf
+        content: |
+          server {
+              listen 80;
+              server_name _;
+              
+              root /opt/devops-dashboard/client/dist;
+              index index.html;
+
+              # Serve static files from React build
+              location / {
+                  try_files $uri $uri/ /index.html;
+              }
+
+              # Proxy API requests to Node.js backend
+              location /api {
+                  proxy_pass http://localhost:{{ app_port }};
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection 'upgrade';
+                  proxy_set_header Host $host;
+                  proxy_cache_bypass $http_upgrade;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+          }
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart nginx
+      tags:
+        - nginx
+
+    - name: Ensure Nginx service is enabled and started
+      systemd:
+        name: nginx
+        state: started
+        enabled: yes
+      tags:
+        - nginx
+
+    - name: Verify application is running
+      wait_for:
+        port: "{{ app_port }}"
+        delay: 2
+        timeout: 60
+        state: started
+      tags:
+        - verify
+
+    - name: Verify Nginx is listening on port 80
+      wait_for:
+        port: 80
+        delay: 2
+        timeout: 30
+        state: started
+      tags:
+        - verify
+
+    - name: Display deployment information
+      debug:
+        msg:
+          - "========================================"
+          - "Deployment completed successfully!"
+          - "========================================"
+          - "Application: {{ app_name }}"
+          - "Version: {{ app_version }}"
+          - "Host: {{ inventory_hostname }}"
+          - "Deployed at: {{ deployment_date }}"
+          - "App running on port: {{ app_port }}"
+          - "Nginx proxying on port: 80"
+          - "========================================"
+      tags:
+        - always
+
+  handlers:
+    - name: restart nginx
+      systemd:
+        name: nginx
+        state: restarted
+      tags:
+        - nginx
+
+    - name: reload nginx
+      systemd:
+        name: nginx
+        state: reloaded
+      tags:
+        - nginx
+
+    - name: reload nginx
+      systemd:
+        name: nginx
+        state: reloaded
+      tags:
+        - nginx
