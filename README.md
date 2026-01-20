@@ -1,4 +1,4 @@
-# project-deployandconfigureawebapp(terraform+ansible)
+# terraform+ansible
 
 ## Overview
 
