@@ -1,0 +1,44 @@
+---
+# ========================================
+# System Setup Tasks
+# ========================================
+
+- name: Update system packages
+  yum:
+    name: '*'
+    state: latest
+    update_cache: yes
+  tags:
+    - system
+    - updates
+
+- name: Install required packages
+  yum:
+    name:
+      - git
+      - gcc-c++
+      - make
+    state: present
+  tags:
+    - system
+
+- name: Install Node.js {{ nodejs_version }} using dnf
+  shell: |
+    dnf install -y nodejs npm
+  args:
+    creates: /usr/bin/node
+  tags:
+    - nodejs
+
+- name: Verify Node.js installation
+  command: node --version
+  register: node_version
+  changed_when: false
+  tags:
+    - nodejs
+
+- name: Display Node.js version
+  debug:
+    msg: "Node.js version: {{ node_version.stdout }}"
+  tags:
+    - nodejs

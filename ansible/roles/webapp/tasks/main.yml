@@ -1,0 +1,89 @@
+---
+# ========================================
+# Web Application Deployment Tasks
+# ========================================
+
+- name: Create application directory
+  file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0755'
+  tags:
+    - webapp
+
+- name: Clone application from GitHub
+  git:
+    repo: "{{ github_repo }}"
+    dest: "{{ app_dir }}"
+    version: main
+    force: yes
+  become_user: "{{ app_user }}"
+  tags:
+    - webapp
+    - deploy
+
+- name: Install all dependencies
+  shell: npm run install:all
+  args:
+    chdir: "{{ app_dir }}"
+  become_user: "{{ app_user }}"
+  tags:
+    - webapp
+    - deploy
+
+- name: Build production frontend
+  shell: VITE_API_URL=/api npm run build
+  args:
+    chdir: "{{ app_dir }}"
+  become_user: "{{ app_user }}"
+  tags:
+    - webapp
+    - deploy
+
+- name: Install PM2 globally
+  npm:
+    name: pm2
+    global: yes
+    state: present
+  tags:
+    - webapp
+
+- name: Stop existing PM2 processes
+  shell: pm2 delete all || true
+  become_user: "{{ app_user }}"
+  ignore_errors: yes
+  tags:
+    - webapp
+
+- name: Start application with PM2
+  shell: pm2 start npm --name "devops-dashboard" -- start
+  args:
+    chdir: "{{ app_dir }}"
+  become_user: "{{ app_user }}"
+  tags:
+    - webapp
+    - deploy
+
+- name: Save PM2 configuration
+  shell: pm2 save
+  become_user: "{{ app_user }}"
+  tags:
+    - webapp
+
+- name: Setup PM2 to start on boot
+  shell: pm2 startup systemd -u {{ app_user }} --hp /home/{{ app_user }}
+  args:
+    creates: /etc/systemd/system/pm2-{{ app_user }}.service
+  tags:
+    - webapp
+
+- name: Verify application is running
+  wait_for:
+    port: "{{ app_port }}"
+    delay: 2
+    timeout: 60
+    state: started
+  tags:
+    - verify

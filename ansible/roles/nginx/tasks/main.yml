@@ -1,0 +1,46 @@
+---
+# ========================================
+# Nginx Installation and Configuration
+# ========================================
+
+- name: Install Nginx
+  shell: dnf install -y nginx
+  args:
+    creates: /usr/sbin/nginx
+  tags:
+    - nginx
+
+- name: Ensure Nginx package is present
+  yum:
+    name: nginx
+    state: present
+  tags:
+    - nginx
+
+- name: Configure Nginx as reverse proxy
+  template:
+    src: devops-dashboard.conf.j2
+    dest: /etc/nginx/conf.d/devops-dashboard.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart nginx
+  tags:
+    - nginx
+
+- name: Ensure Nginx service is enabled and started
+  systemd:
+    name: nginx
+    state: started
+    enabled: yes
+  tags:
+    - nginx
+
+- name: Verify Nginx is listening on port 80
+  wait_for:
+    port: 80
+    delay: 2
+    timeout: 30
+    state: started
+  tags:
+    - verify

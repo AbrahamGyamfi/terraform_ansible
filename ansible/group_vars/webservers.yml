@@ -1,0 +1,12 @@
+---
+# ========================================
+# Variables for webservers group
+# ========================================
+
+app_port: 5000
+app_name: "DevOps Dashboard"
+app_version: "1.0.0"
+app_dir: /opt/devops-dashboard
+github_repo: "https://github.com/AbrahamGyamfi/DevOps_deploy.git"
+nodejs_version: "18"
+app_user: ec2-user

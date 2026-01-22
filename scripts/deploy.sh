@@ -33,7 +33,7 @@ echo -e "${BLUE}========================================${NC}\n"
 # ========================================
 # Step 1: Prerequisites Check
 # ========================================
-echo -e "${YELLOW}[1/6] Checking prerequisites...${NC}"
+echo -e "${YELLOW}[1/8] Checking prerequisites...${NC}"
 
 if ! command -v terraform &> /dev/null; then
     echo -e "${RED}Error: Terraform is not installed${NC}"
@@ -62,7 +62,7 @@ echo -e "${GREEN}✓ All prerequisites met${NC}\n"
 # ========================================
 # Step 2: Terraform Initialization
 # ========================================
-echo -e "${YELLOW}[2/6] Initializing Terraform...${NC}"
+echo -e "${YELLOW}[2/8] Initializing Terraform...${NC}"
 cd "$TERRAFORM_DIR"
 
 terraform init
@@ -73,10 +73,26 @@ echo -e "${GREEN}✓ Terraform initialized${NC}\n"
 # ========================================
 # Step 3: Terraform Apply
 # ========================================
-echo -e "${YELLOW}[3/6] Provisioning infrastructure with Terraform...${NC}"
+echo -e "${YELLOW}[3/8] Provisioning infrastructure with Terraform...${NC}"
 
 terraform plan
 
+echo -e "${YELLOW}Below are the resources that will be created:${NC}"
+grep -E '^  #|^    +' "$EVIDENCE_DIR/PLAN.txt" | sed 's/^  #/Resource:/;s/^    /    Details: /'
+
+# ========================================
+# Step 4: User Approval Before Apply
+# ========================================
+echo -e "${YELLOW}Do you want to proceed with these changes? (yes/no)${NC}"
+read -r USER_APPROVE
+if [[ ! "$USER_APPROVE" =~ ^[Yy][Ee][Ss]$ ]]; then
+    echo -e "${RED}Aborting deployment as per user request.${NC}"
+    exit 1
+fi
+
+# ========================================
+# Step 5: Terraform Apply
+# ========================================
 echo -e "${BLUE}Applying Terraform configuration...${NC}"
 terraform apply -auto-approve | tee "$EVIDENCE_DIR/APPLY.txt"
 
@@ -85,7 +101,7 @@ echo -e "${GREEN}✓ Infrastructure provisioned${NC}\n"
 # ========================================
 # Step 4: Extract Outputs
 # ========================================
-echo -e "${YELLOW}[4/6] Extracting Terraform outputs...${NC}"
+echo -e "${YELLOW}[4/8] Extracting Terraform outputs...${NC}"
 
 PUBLIC_IP=$(terraform output -raw instance_public_ip)
 SSH_KEY_PATH=$(terraform output -raw ssh_private_key_path)
@@ -98,7 +114,7 @@ echo -e "${BLUE}SSH Key: ${GREEN}$SSH_KEY_PATH${NC}\n"
 # ========================================
 # Step 5: Update Ansible Inventory
 # ========================================
-echo -e "${YELLOW}[5/6] Updating Ansible inventory...${NC}"
+echo -e "${YELLOW}[5/8] Updating Ansible inventory...${NC}"
 
 cd "$ANSIBLE_DIR"
 
@@ -127,7 +143,7 @@ echo -e "${GREEN}✓ Inventory updated${NC}\n"
 # ========================================
 # Step 6: Wait for Instance to be Ready
 # ========================================
-echo -e "${YELLOW}[6/6] Waiting for EC2 instance to be ready...${NC}"
+echo -e "${YELLOW}[6/8] Waiting for EC2 instance to be ready...${NC}"
 
 MAX_ATTEMPTS=12
 ATTEMPT=0
@@ -151,7 +167,7 @@ fi
 # ========================================
 # Step 7: Run Ansible Playbook
 # ========================================
-echo -e "${YELLOW}[7/6] Running Ansible playbook...${NC}"
+echo -e "${YELLOW}[7/8] Running Ansible playbook...${NC}"
 
 ansible-playbook -i inventory.ini site.yml
 
@@ -160,7 +176,7 @@ echo -e "${GREEN}✓ Ansible configuration complete${NC}\n"
 # ========================================
 # Step 8: Verification
 # ========================================
-echo -e "${YELLOW}[8/6] Verifying deployment...${NC}"
+echo -e "${YELLOW}[8/8] Verifying deployment...${NC}"
 
 WEB_URL="http://$PUBLIC_IP"
 
