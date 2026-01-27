@@ -6,22 +6,17 @@
 
 output "instance_id" {
   description = "EC2 instance ID"
-  value       = aws_instance.web_server.id
+  value       = module.ec2.instance_id
 }
 
 output "instance_public_ip" {
   description = "Public IP address of the EC2 instance"
-  value       = aws_instance.web_server.public_ip
+  value       = module.ec2.public_ip
 }
 
 output "instance_public_dns" {
   description = "Public DNS name of the EC2 instance"
-  value       = aws_instance.web_server.public_dns
-}
-
-output "instance_private_ip" {
-  description = "Private IP address of the EC2 instance"
-  value       = aws_instance.web_server.private_ip
+  value       = module.ec2.public_dns
 }
 
 output "ssh_user" {
@@ -31,32 +26,27 @@ output "ssh_user" {
 
 output "ssh_key_name" {
   description = "Name of the SSH key pair"
-  value       = aws_key_pair.deployer.key_name
+  value       = module.ssh_keys.key_name
 }
 
 output "ssh_private_key_path" {
   description = "Path to the SSH private key file"
-  value       = local_file.private_key.filename
+  value       = module.ssh_keys.private_key_path
 }
 
 output "security_group_id" {
   description = "ID of the security group"
-  value       = aws_security_group.web_server.id
-}
-
-output "ami_id" {
-  description = "AMI ID used for the instance"
-  value       = data.aws_ami.amazon_linux_2023.id
+  value       = module.security.security_group_id
 }
 
 output "connection_command" {
   description = "SSH command to connect to the instance"
-  value       = "ssh -i ${local_file.private_key.filename} ec2-user@${aws_instance.web_server.public_ip}"
+  value       = "ssh -i ${module.ssh_keys.private_key_path} ec2-user@${module.ec2.public_ip}"
 }
 
 output "web_url" {
   description = "URL to access the web server"
-  value       = "http://${aws_instance.web_server.public_ip}"
+  value       = "http://${module.ec2.public_ip}"
 }
 
 output "ansible_inventory_hint" {
@@ -64,6 +54,6 @@ output "ansible_inventory_hint" {
   value       = <<-EOT
     Add to ansible/inventory.ini:
     [webservers]
-    ${aws_instance.web_server.public_ip} ansible_user=ec2-user ansible_ssh_private_key_file=../keys/${var.key_name}.pem
+    ${module.ec2.public_ip} ansible_user=ec2-user ansible_ssh_private_key_file=../keys/${var.key_name}.pem
   EOT
 }
