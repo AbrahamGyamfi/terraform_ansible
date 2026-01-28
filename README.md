@@ -1,200 +1,105 @@
-# terraform+ansible
+# DevOps Infrastructure Automation with Terraform & Ansible
+
+[![Infrastructure](https://img.shields.io/badge/Infrastructure-Terraform-623CE4)](https://terraform.io)
+[![Configuration](https://img.shields.io/badge/Configuration-Ansible-EE0000)](https://ansible.com)
+[![Cloud](https://img.shields.io/badge/Cloud-AWS-FF9900)](https://aws.amazon.com)
 
 ## Overview
 
-This project demonstrates how to provision an EC2 instance using Terraform and configure a full-stack DevOps Dashboard using Ansible. SSH key-based authentication is used, and all provisioning is automated to reflect industry-standard practices. The application is a production-ready React/Node.js dashboard deployed from GitHub.
+Automated infrastructure provisioning with Terraform and application deployment with Ansible. Deploys a full-stack React/Node.js DevOps Dashboard with S3 remote state, SSH authentication, and production-ready configuration.
 
 ## Architecture
 
-### Terraform:
-- Creates a **t3.micro** EC2 instance (Amazon Linux 2023)
-- Generates a local SSH key (RSA 4096-bit) and registers the public key as an AWS key pair
-- Creates a security group allowing:
-  - **HTTP (80)** from anywhere
-  - **SSH (22)** from specific IP (configurable)
-- Uses `data.aws_ami` to dynamically fetch the latest Amazon Linux 2023 AMI
-- Creates 30GB EBS volume with encryption at rest
-- Tags all resources with standard tags (Project, Owner, Environment, Name)
+![Architecture Diagram](Terraform_ansible_architecture.jpg)
 
-### Ansible:
-- Installs and configures Node.js 18 (via dnf on AL2023)
-- Clones application from GitHub: `https://github.com/AbrahamGyamfi/DevOps_deploy.git`
-- Installs all dependencies (root, client, server)
-- Builds React frontend with production configuration (`VITE_API_URL=/api`)
-- Configures PM2 process manager for Node.js backend
-- Installs and configures Nginx as reverse proxy:
-  - Serves React static files from `/opt/devops-dashboard/client/dist`
-  - Proxies API requests (`/api/*`) to Node.js backend on port 5000
-- Enables and starts all services with auto-restart on boot
+**Components:**
+- **Remote State**: S3 backend + DynamoDB locking (created by `setup-remote-state.sh`)
+- **Infrastructure**: EC2 t3.micro, Security Groups, SSH keys, 30GB encrypted EBS
+- **Application**: React frontend + Node.js API + Nginx reverse proxy + PM2 process management
 
 ## Prerequisites
 
-- **Terraform** v1.0+
-- **Ansible** 2.9+
-- **AWS account** with credentials configured (via `aws configure` or environment variables)
-- **Region permissions**: eu-west-1 (Ireland)
-- **Linux/Mac** or WSL on Windows
-- Internet access to reach AWS and install packages
+- Terraform >= 1.0, Ansible >= 2.9, AWS CLI >= 2.0
+- AWS account with programmatic access
+- IAM permissions: EC2, S3, DynamoDB
+- Linux/macOS/WSL environment
 
-## Folder Structure
+## Quick Start
 
-```
-Terraform_ansible/
-│
-├── terraform/                  # Terraform configuration
-│   ├── main.tf                # Main infrastructure definitions
-│   ├── variables.tf           # Variable declarations
-│   ├── outputs.tf             # Output values (IP, SSH key path, etc.)
-│   ├── terraform.tfvars       # Environment-specific values
-│   └── terraform.tfvars.example
-│
-├── ansible/                    # Ansible configuration
-│   ├── ansible.cfg            # Ansible settings
-│   ├── inventory.ini          # Auto-generated from Terraform outputs
-│   ├── site.yml               # Master playbook
-│   ├── roles/
-│   │   └── nginx/
-│   │       ├── handlers/
-│   │       ├── tasks/
-│   │       └── templates/
-│   └── templates/             # Deleted (GitHub app deployment)
-│
-├── keys/                       # SSH keys (auto-generated)
-│   ├── terraform-ansible-key.pem  # Private key (chmod 400)
-│   └── terraform-ansible-key.pub  # Public key
-│
-├── evidence/                   # Deployment evidence
-│   ├── APPLY.txt              # Terraform apply log
-│   ├── HTTP_RESPONSE_CURL.txt # HTTP response validation
-│   ├── BROWSER_SCREENSHOT.png # Visual proof (manual)
-│   └── DESTROY.txt            # Terraform destroy log
-│
-├── scripts/                    # Automation scripts
-│   ├── deploy.sh              # Full deployment automation
-│   ├── cleanup.sh             # Infrastructure teardown
-│   └── update-inventory.sh    # Inventory generator
-│
-├── DEPLOYMENT_WORKFLOW.md      # Detailed technical documentation
-├── QUICKSTART.md
-├── CHECKLIST.md
-└── README.md                   # This file
-```
-
-## Usage
-
-### 1. Provision Infrastructure
-
+### Automated Deployment
 ```bash
-cd terraform
-terraform init
-terraform apply -auto-approve | tee ../evidence/APPLY.txt
-```
-
-**This will:**
-- Create EC2 instance (t3.micro, Amazon Linux 2023)
-- Generate RSA 4096-bit SSH key pair
-- Create security groups (SSH:22, HTTP:80)
-- Configure 30GB encrypted EBS volume
-- Output the public IP of the EC2 instance
-
-**Output examples:**
-```
-instance_public_ip = "34.243.75.237"
-ssh_private_key_path = "../keys/terraform-ansible-key.pem"
-ssh_user = "ec2-user"
-web_url = "http://34.243.75.237"
-```
-
-### 2. Generate Inventory for Ansible
-
-```bash
-cd ../ansible
-chmod +x ../scripts/update-inventory.sh
-../scripts/update-inventory.sh
-```
-
-**Or use automated deployment:**
-```bash
-cd ..
+git clone <repository-url>
+cd Terraform_ansible
 chmod +x scripts/*.sh
-./scripts/deploy.sh  # Runs Terraform + Ansible automatically
+./scripts/deploy.sh
 ```
 
-### 3. Configure EC2 with Ansible
-
+### Manual Deployment
 ```bash
+# 1. Setup remote state
+./scripts/setup-remote-state.sh
+
+# 2. Provision infrastructure
+cd terraform
+terraform apply -auto-approve
+
+# 3. Configure application
+../scripts/update-inventory.sh
+cd ../ansible
 ansible-playbook -i inventory.ini site.yml
+
+# 4. Cleanup
+../scripts/cleanup.sh
 ```
 
-**This will:**
-- Install system packages and Node.js 18
-- Clone DevOps Dashboard from GitHub
-- Run `npm install:all` (installs root, client, server dependencies)
-- Build production React app: `VITE_API_URL=/api npm run build`
-- Configure PM2 to manage Node.js backend (port 5000)
-- Install and configure Nginx:
-  - Serves React build from `/opt/devops-dashboard/client/dist`
-  - Proxies `/api/*` requests to `http://localhost:5000`
-- Enable services to start on boot
-
-**Verify by visiting:** `http://<public_ip>` or running:
+**Verification:**
 ```bash
 curl http://<public_ip>
 curl http://<public_ip>/api/health
 ```
 
-### 4. Destroy Infrastructure
+## Evidence Collection
 
-```bash
-cd terraform
-terraform destroy -auto-approve | tee ../evidence/DESTROY.txt
-```
+Deployment artifacts in `evidence/` directory:
+- `PLAN.txt` - Terraform execution plan
+- `APPLY.txt` - Infrastructure provisioning log  
+- `HTTP_RESPONSE_CURL.txt` - Application health check
+- `Web_output*.png` - Application screenshots
+- `DESTROY.txt` - Infrastructure cleanup log
 
-**This will remove all resources provisioned by Terraform.**
+## Technology Stack
 
-## Evidence
+**Infrastructure:** Terraform, Ansible, AWS (EC2, S3, DynamoDB)  
+**Application:** React 18 + Node.js 18 + Nginx + PM2  
+**Security:** SSH keys, encrypted EBS, security groups  
 
-Evidence files are stored in the `evidence/` directory:
-
-- **Webpage deployed**: Screenshot captured at `http://<public_ip>` → `BROWSER_SCREENSHOT.png`
-- **Terraform apply**: Complete infrastructure creation log → `APPLY.txt` ✓
-- **HTTP validation**: curl response with headers → `HTTP_RESPONSE_CURL.txt` ✓
-- **Terraform destroy**: Complete teardown log → `DESTROY.txt`
-- **Ansible logs**: Playbook output shows all services installed and running
-
-## Application Stack
-
-**Frontend:**
-- React 18 + Vite 5.4.21
-- Production build served by Nginx
-- API calls to `/api` endpoint
-
-**Backend:**
-- Node.js 18.20.8 + Express
-- Runs on port 5000 (localhost only)
-- Managed by PM2 with auto-restart
-
-**Web Server:**
-- Nginx 1.28.0
-- Reverse proxy configuration
-- Serves static files + proxies API requests
+**Flow:** `Internet → Nginx:80 → React SPA | /api/* → Node.js:5000`
 
 ## Security
 
-- SSH key-based authentication (no passwords)
-- RSA 4096-bit encryption
-- Private key permissions: `chmod 400`
-- Security group rules: least privilege
-- EBS volume encryption at rest
-- Backend isolated on localhost (not publicly accessible)
+- RSA 4096-bit SSH authentication
+- Encrypted EBS volumes and S3 state
+- Least-privilege security groups
+- Backend services on localhost only
+- No hardcoded credentials
 
-## Additional Resources
+## Troubleshooting
 
-- **Detailed Workflow**: See [DEPLOYMENT_WORKFLOW.md](DEPLOYMENT_WORKFLOW.md) for comprehensive explanations
-- **Terraform Docs**: [AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
-- **Ansible Docs**: [Official Documentation](https://docs.ansible.com/)
+| Issue | Solution |
+|-------|----------|
+| AWS credentials not configured | `aws configure` |
+| Terraform state locked | `terraform force-unlock` |
+| SSH connection refused | Check security group IP |
+| Ansible timeout | `chmod 400` SSH key |
+
+**Debug:** `DEBUG=1 ./scripts/deploy.sh`
+
+## Resources
+
+- [Architecture Diagram](Terraform_ansible_architecture.jpg)
+- [Terraform Docs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
+- [Ansible Docs](https://docs.ansible.com/)
 
 ---
 
-**Quick Deploy:** Run `./scripts/deploy.sh`  
-**Questions?** Check [DEPLOYMENT_WORKFLOW.md](DEPLOYMENT_WORKFLOW.md)
+**🚀 Deploy:** `./scripts/deploy.sh` | **🧹 Cleanup:** `./scripts/cleanup.sh`
