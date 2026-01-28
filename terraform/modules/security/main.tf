@@ -2,14 +2,10 @@
 # Security Group Module
 # ========================================
 
-data "aws_vpc" "default" {
-  default = true
-}
-
 resource "aws_security_group" "web_server" {
   name        = "${var.project_name}-sg"
   description = "Security group for Nginx web server - allows SSH and HTTP"
-  vpc_id      = data.aws_vpc.default.id
+  vpc_id      = var.vpc_id
 
   # SSH access
   ingress {

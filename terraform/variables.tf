@@ -7,7 +7,13 @@
 variable "aws_region" {
   description = "AWS region where resources will be provisioned"
   type        = string
-  default     = "us-east-1"
+  default     = "eu-west-1"
+}
+
+variable "availability_zone" {
+  description = "Availability zone for subnet placement"
+  type        = string
+  default     = "eu-west-1a"
 }
 
 variable "project_name" {

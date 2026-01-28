@@ -18,6 +18,11 @@ variable "security_group_id" {
   type        = string
 }
 
+variable "subnet_id" {
+  description = "ID of the subnet"
+  type        = string
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

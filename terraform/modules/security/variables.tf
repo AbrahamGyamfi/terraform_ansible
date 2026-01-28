@@ -3,6 +3,11 @@ variable "project_name" {
   type        = string
 }
 
+variable "vpc_id" {
+  description = "ID of the VPC"
+  type        = string
+}
+
 variable "ssh_allowed_cidr" {
   description = "CIDR blocks allowed for SSH access"
   type        = list(string)

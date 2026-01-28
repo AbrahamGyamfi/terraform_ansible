@@ -10,11 +10,10 @@
 terraform {
   required_version = ">= 1.0"
 
-
   backend "s3" {
-    bucket         = "terraform-ansible-state-1769520529"
+    bucket         = "terraform-ansible-state-eu-west-1-1769520529"
     key            = "terraform.tfstate"
-    region         = "us-east-1"
+    region         = "eu-west-1"
     use_lockfile   = true
     encrypt        = true
   }
@@ -47,6 +46,18 @@ provider "aws" {
 # Module Calls
 # ========================================
 
+# Networking Module
+module "networking" {
+  source = "./modules/networking"
+
+  project_name      = var.project_name
+  availability_zone = var.availability_zone
+  tags = {
+    Name        = "${var.project_name}-network"
+    Environment = var.environment
+  }
+}
+
 # SSH Key Module
 module "ssh_keys" {
   source = "./modules/keys"
@@ -64,6 +75,7 @@ module "security" {
   source = "./modules/security"
 
   project_name      = var.project_name
+  vpc_id            = module.networking.vpc_id
   ssh_allowed_cidr  = var.ssh_allowed_cidr
   http_allowed_cidr = var.http_allowed_cidr
   tags = {
@@ -80,6 +92,7 @@ module "ec2" {
   instance_type     = var.instance_type
   key_name          = module.ssh_keys.key_name
   security_group_id = module.security.security_group_id
+  subnet_id         = module.networking.public_subnet_id
   tags = {
     Name        = "${var.project_name}-server"
     Environment = var.environment
