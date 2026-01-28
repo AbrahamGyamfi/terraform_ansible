@@ -83,6 +83,9 @@ Deployment artifacts in `evidence/` directory:
 - Backend services on localhost only
 - No hardcoded credentials
 
+**⚠️ Production Security Notes:**
+- Update `terraform.tfvars`: Restrict `ssh_allowed_cidr` to your IP only
+
 ## Troubleshooting
 
 | Issue | Solution |
