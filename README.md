@@ -83,7 +83,7 @@ Deployment artifacts in `evidence/` directory:
 - Backend services on localhost only
 - No hardcoded credentials
 
-**⚠️ Production Security Notes:**
+** Production Security Notes:**
 - Update `terraform.tfvars`: Restrict `ssh_allowed_cidr` to your IP only
 
 ## Troubleshooting
@@ -105,4 +105,4 @@ Deployment artifacts in `evidence/` directory:
 
 ---
 
-**🚀 Deploy:** `./scripts/deploy.sh` | **🧹 Cleanup:** `./scripts/cleanup.sh`
+**Deploy:** `./scripts/deploy.sh` | ** Cleanup:** `./scripts/cleanup.sh`
